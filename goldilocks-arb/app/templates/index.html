@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Goldilocks Arbitrage Radar</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#171f31; --line:#222c42; --txt:#e6ebf5; --mut:#8793ad;
+    --acc:#5eead4; --good:#34d399; --bad:#f87171; --warn:#fbbf24; --blue:#60a5fa;
+    --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{padding:max(12px,env(safe-area-inset-top)) 12px 40px}
+  .wrap{max-width:1200px;margin:0 auto}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin:6px 0 14px}
+  h1{font-size:18px;margin:0;letter-spacing:.2px}
+  h1 small{display:block;color:var(--mut);font-weight:400;font-size:12px;margin-top:2px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:0 0 10px;font-weight:600}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:12px;color:var(--mut)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}
+  .dot.on{background:var(--good);box-shadow:0 0 8px var(--good)}
+  .btn{display:inline-block;padding:8px 14px;border-radius:10px;background:var(--acc);color:#04201c;font-weight:700;text-decoration:none;font-size:13px;border:0}
+  .btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px}
+  .stat .v{font-size:22px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+  .stat .s{font-size:11px;color:var(--mut)}
+  .good{color:var(--good)} .bad{color:var(--bad)} .mut{color:var(--mut)} .warn{color:var(--warn)}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--panel);z-index:1}
+  th{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+  td.l,th.l{text-align:left}
+  tbody tr:hover td{background:var(--panel2)}
+  tr.open td{background:rgba(52,211,153,.10)}
+  .coin{font-weight:700}
+  .px{font-family:var(--mono);font-size:12px}
+  .px .a{color:var(--mut)}
+  .tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:11px;font-weight:700}
+  .tag.live{background:rgba(52,211,153,.18);color:var(--good)}
+  .tag.idle{background:var(--panel2);color:var(--mut)}
+  .foot{color:var(--mut);font-size:12px;text-align:center;margin-top:20px}
+  .banner{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);color:var(--warn);padding:8px 12px;border-radius:10px;margin-bottom:12px;display:none}
+  @media (max-width:520px){ .stat .v{font-size:19px} th,td{padding:7px 8px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Goldilocks Arbitrage Radar<small>Hyperliquid · Bybit · MEXC — $1M–$80M mid-caps, paper-trading only</small></h1>
+    <div class="row">
+      <span class="pill"><span class="dot" id="d-hyperliquid"></span>HL</span>
+      <span class="pill"><span class="dot" id="d-bybit"></span>Bybit</span>
+      <span class="pill"><span class="dot" id="d-mexc"></span>MEXC</span>
+      <span class="pill" id="ram">RAM –</span>
+      <a class="btn" href="/export.csv" download>⬇ CSV</a>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="card" id="today">
+    <h2>Today's Daily Points <span class="mut" id="t-date"></span></h2>
+    <div class="grid">
+      <div class="stat"><div class="k">Gaps found</div><div class="v" id="t-gaps">–</div><div class="s" id="t-open">&nbsp;</div></div>
+      <div class="stat"><div class="k">Avg duration</div><div class="v" id="t-avg">–</div><div class="s">milliseconds</div></div>
+      <div class="stat"><div class="k">Max duration</div><div class="v" id="t-max">–</div><div class="s">milliseconds</div></div>
+      <div class="stat"><div class="k">Best coin</div><div class="v" id="t-coin">–</div><div class="s" id="t-coinp">&nbsp;</div></div>
+      <div class="stat"><div class="k">Paper-profit points</div><div class="v" id="t-pts">–</div><div class="s">1 point = $1 simulated</div></div>
+      <div class="stat"><div class="k">Funding &gt;50% APR</div><div class="v" id="t-fund">–</div><div class="s">events logged today</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Live 20-Coin Sniper <span class="mut" id="l-meta"></span></h2>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Coin</th><th>Score</th><th class="l">Route (buy → sell)</th><th>Gross %</th><th>Net %</th>
+          <th>Hyperliquid bid / ask</th><th>Bybit bid / ask</th><th>MEXC bid / ask</th><th>Status</th>
+        </tr></thead>
+        <tbody id="live"><tr><td colspan="9" class="mut l">Waiting for the first radar sweep…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Day-by-Day History <span class="mut">(UTC)</span></h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Date</th><th>Gaps</th><th>Avg ms</th><th>Max ms</th><th class="l">Top coin</th><th>Paper points</th></tr></thead>
+        <tbody id="hist"><tr><td colspan="6" class="mut l">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <a class="btn ghost" href="/export.csv?kind=gaps" download>Gap events CSV</a>
+      <a class="btn ghost" href="/export.csv?kind=daily" download>Daily history CSV</a>
+      <a class="btn ghost" href="/export.csv?kind=funding" download>Funding events CSV</a>
+    </div>
+  </section>
+
+  <div class="foot">Zero-bloat storage: rows are written only when a net-profitable gap closes or funding diverges &gt; 50% APR.</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = (n, d = 0) => (n === null || n === undefined) ? '–' : Number(n).toLocaleString(undefined, {minimumFractionDigits: d, maximumFractionDigits: d});
+const px = (x) => {
+  if (x === null || x === undefined) return '–';
+  const a = Math.abs(x);
+  const d = a >= 1000 ? 2 : a >= 10 ? 3 : a >= 1 ? 4 : a >= 0.01 ? 5 : a >= 0.0001 ? 7 : 9;
+  return Number(x).toFixed(d);
+};
+const cls = (n) => n > 0 ? 'good' : n < 0 ? 'bad' : 'mut';
+const SHORT = {hyperliquid: 'HL', bybit: 'Bybit', mexc: 'MEXC'};
+
+async function j(url) {
+  const r = await fetch(url, {cache: 'no-store'});
+  if (!r.ok) throw new Error(url + ' ' + r.status);
+  return r.json();
+}
+
+async function loadToday() {
+  try {
+    const d = await j('/api/today');
+    $('t-date').textContent = '· ' + d.date + ' UTC';
+    $('t-gaps').textContent = num(d.gap_count);
+    $('t-open').textContent = d.open_gaps ? d.open_gaps + ' open right now' : '\u00a0';
+    $('t-avg').textContent = num(d.avg_duration_ms, 0);
+    $('t-max').textContent = num(d.max_duration_ms);
+    $('t-coin').textContent = d.best_coin || '–';
+    $('t-coinp').textContent = d.best_coin ? '+' + num(d.best_coin_profit, 2) + ' pts' : '\u00a0';
+    const pts = $('t-pts'); pts.textContent = num(d.profit_points, 2); pts.className = 'v ' + cls(d.profit_points);
+    $('t-fund').textContent = num(d.funding_events);
+    const b = $('banner');
+    if (d.db && d.db !== 'ok') { b.style.display = 'block'; b.textContent = 'Database ' + d.db + ' — live radar keeps running; stats resume when it reconnects.'; }
+    else b.style.display = 'none';
+  } catch (e) { /* keep last values */ }
+}
+
+async function loadHistory() {
+  try {
+    const rows = await j('/api/history?days=60');
+    $('hist').innerHTML = rows.length ? rows.map((r) => `
+      <tr><td>${esc(r.date)}</td><td>${num(r.gap_count)}</td><td>${num(r.avg_duration_ms, 0)}</td>
+      <td>${num(r.max_duration_ms)}</td><td class="l coin">${esc(r.top_coin || '–')}</td>
+      <td class="${cls(r.profit_points)}">${num(r.profit_points, 2)}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="mut l">No closed gaps yet — they appear here the moment one closes.</td></tr>';
+  } catch (e) {}
+}
+
+function cell(v) {
+  if (!v) return '<span class="mut">–</span>';
+  return `<span class="px">${px(v.bid)} <span class="a">/ ${px(v.ask)}</span></span><br><span class="mut" style="font-size:11px">${num(v.spread_bps, 1)} bps · $${num(Math.min(v.bid_usd, v.ask_usd))}</span>`;
+}
+
+async function loadLive() {
+  try {
+    const d = await j('/api/live');
+    for (const ex of Object.keys(SHORT)) $('d-' + ex).className = 'dot' + (d.exchanges[ex] ? ' on' : '');
+    const age = d.last_radar_ms ? Math.round((Date.now() - d.last_radar_ms) / 1000) : null;
+    $('l-meta').textContent = `· ${d.rows.length} locked · fee ${d.fee_pct}% · min $${num(d.min_liquidity_usd)} · radar ${age === null ? 'pending' : age + 's ago'} · ${num(d.ticks)} ticks`;
+    if (!d.rows.length) return;
+    $('live').innerHTML = d.rows.map((r) => {
+      const route = r.best_route ? `${SHORT[r.best_route.buy]} → ${SHORT[r.best_route.sell]}` : '–';
+      return `<tr class="${r.gap_open ? 'open' : ''}">
+        <td class="coin">${esc(r.coin)}</td><td class="mut">${num(r.score, 1)}</td><td class="l">${route}</td>
+        <td class="${cls(r.gross_pct)}">${r.gross_pct === null ? '–' : num(r.gross_pct, 3)}</td>
+        <td class="${cls(r.net_pct)}">${r.net_pct === null ? '–' : num(r.net_pct, 3)}</td>
+        <td>${cell(r.venues.hyperliquid)}</td><td>${cell(r.venues.bybit)}</td><td>${cell(r.venues.mexc)}</td>
+        <td>${r.gap_open ? '<span class="tag live">GAP OPEN</span>' : '<span class="tag idle">watching</span>'}</td></tr>`;
+    }).join('');
+  } catch (e) {}
+}
+
+async function loadHealth() {
+  try { const h = await j('/health'); $('ram').textContent = 'RAM ' + h.ram_mb + ' MB'; } catch (e) {}
+}
+
+loadToday(); loadHistory(); loadLive(); loadHealth();
+setInterval(loadLive, 1000);
+setInterval(loadToday, 5000);
+setInterval(loadHistory, 30000);
+setInterval(loadHealth, 10000);
+</script>
+</body>
+</html>
